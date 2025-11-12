@@ -1,0 +1,4 @@
+[submodule "BE_Config"]
+	path = BE_Config
+	url = https://github.com/Graduation-Project-Min/BE_Config
+	branch = main
