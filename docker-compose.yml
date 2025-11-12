@@ -15,8 +15,6 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      langchain:
-        condition: service_healthy
     networks:
       - test-network
 
