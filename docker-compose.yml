@@ -10,17 +10,27 @@ services:
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_FLYWAY_ENABLED=false
-    command: ["java","-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE}","-jar","app.jar"]
+    command:
+      - java -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} -jar app.jar
     depends_on:
       mysql:
         condition: service_healthy
+      langchain:
+        condition: service_healthy
+    networks:
+      - test-network
+
+  langchain:
+    image: ${DOCKER_USERNAME}/${CHATBOT_REPO}:${CHATBOT_TAG:-latest}
+    env_file: .env
+    command: [ "uvicorn","app.main:app","--host","0.0.0.0","--port","8000" ]  # ← 추가
     healthcheck:
-      test: ["CMD","curl","-f","http://localhost:8080/actuator/health"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
       interval: 10s
-      timeout: 3s
-      retries: 10
-    restart: unless-stopped
-    networks: [test-network]
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
 
   mysql:
     image: mysql:8.0
@@ -32,16 +42,16 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD","mysqladmin","ping","-h","localhost"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-    networks: [test-network]
+    networks:
+      - test-network
 
   nginx:
-    image: nginx:latest
     container_name: nginx-container
+    image: nginx:latest
     ports:
       - "80:80"
       - "443:443"
@@ -49,22 +59,22 @@ services:
       - /home/ubuntu/nginx/conf.d:/etc/nginx/conf.d
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
-      app:
-        condition: service_healthy
-    restart: unless-stopped
-    networks: [test-network]
+      - app
+    networks:
+      - test-network
 
   dozzle:
     image: amir20/dozzle:latest
     container_name: dozzle
+    restart: unless-stopped
     environment:
       - DOZZLE_BASE=/dozzle
       - DOZZLE_AUTH_PROVIDER=simple
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./dozzle/users.yml:/data/users.yml:ro
-    restart: unless-stopped
-    networks: [test-network]
+    networks:
+      - test-network
 
 networks:
   test-network:
